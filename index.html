@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera Simulator — learn exposure, depth of field &amp; white balance</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">◉</span>
+    <h1>Camera Simulator</h1>
+    <span class="tag">Change the settings and see what each one does to the photo</span>
+  </div>
+  <div class="top-actions">
+    <button id="btnHelp" class="ghost">❓ How it works</button>
+    <button id="btnReset" class="ghost">↺ Reset</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ left: photo + readouts ============ -->
+  <section class="viewer">
+    <div class="stage" id="stage">
+      <div class="frame" id="frame">
+        <canvas id="view" aria-label="Simulated photo"></canvas>
+        <div id="afPoint" class="af" hidden></div>
+        <div id="flash"></div>
+        <div id="frameMsg" class="frame-msg" hidden></div>
+        <div class="frame-hint">Click the photo to focus there</div>
+      </div>
+    </div>
+
+    <div class="lcd" id="lcd">
+      <div class="lcd-item"><span class="lcd-k">MODE</span><b id="lcdMode">M</b></div>
+      <div class="lcd-item"><span class="lcd-k">SHUTTER</span><b id="lcdShutter">1/500</b></div>
+      <div class="lcd-item"><span class="lcd-k">APERTURE</span><b id="lcdAperture">f/8</b></div>
+      <div class="lcd-item"><span class="lcd-k">ISO</span><b id="lcdIso">100</b></div>
+      <div class="lcd-meter">
+        <div class="meter-scale">
+          <span>−3</span><span>−2</span><span>−1</span><span>0</span><span>+1</span><span>+2</span><span>+3</span>
+        </div>
+        <div class="meter-track"><div class="meter-needle" id="meterNeedle"></div></div>
+      </div>
+      <div class="lcd-item"><span class="lcd-k">WB</span><b id="lcdWb">AWB</b></div>
+      <div class="lcd-item"><span class="lcd-k">LENS</span><b id="lcdLens">50 mm</b></div>
+    </div>
+
+    <div class="panels">
+      <div class="card">
+        <h3>Histogram <small id="histInfo"></small></h3>
+        <canvas id="hist"></canvas>
+      </div>
+      <div class="card">
+        <h3>Depth of field <small id="dofInfo"></small></h3>
+        <canvas id="dofmap"></canvas>
+      </div>
+      <div class="card lesson">
+        <h3>What's happening?</h3>
+        <div class="lesson-body">
+          <div id="lesson"></div>
+          <ul id="warnings"></ul>
+        </div>
+      </div>
+      <div class="card strip-card">
+        <h3>Snapshots <small><kbd>Space</kbd> = take</small></h3>
+        <div id="strip" class="strip"><p class="hint">Take photos with different settings and compare them here.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ right: all settings ============ -->
+  <aside class="controls">
+    <div class="col">
+      <div class="group">
+        <h2>Scene &amp; light</h2>
+        <div class="chips" id="lightingChips"></div>
+        <p class="desc" id="lightingDesc" hidden></p>
+        <div class="ctl">
+          <label for="carSpeed">Car speed <output id="carSpeedOut"></output></label>
+          <input type="range" id="carSpeed" min="0" max="120" step="5">
+        </div>
+        <label class="check"><input type="checkbox" id="spin"> Pinwheel spinning</label>
+      </div>
+
+      <div class="group">
+        <h2>Exposure mode</h2>
+        <div class="seg" id="modeSeg">
+          <button data-mode="M" title="Manual: you set shutter, aperture and ISO">M</button>
+          <button data-mode="A" title="Aperture priority: you set aperture, camera picks shutter">A / Av</button>
+          <button data-mode="S" title="Shutter priority: you set shutter, camera picks aperture">S / Tv</button>
+        </div>
+        <p class="desc" id="modeDesc"></p>
+        <label class="check"><input type="checkbox" id="autoIso"> Auto ISO (in M mode)</label>
+        <div class="ctl" id="ecCtl">
+          <label for="ec">Exposure comp. <output id="ecOut"></output></label>
+          <input type="range" id="ec" min="-9" max="9" step="1">
+        </div>
+      </div>
+
+      <div class="group triangle">
+        <h2>Exposure triangle</h2>
+        <div class="ctl">
+          <label for="shutter"><span><span class="dot dot-s"></span>Shutter speed</span> <output id="shutterOut"></output></label>
+          <input type="range" id="shutter" min="0" step="1">
+          <div class="scale"><span>slow · blur</span><span>fast · frozen</span></div>
+        </div>
+        <div class="ctl">
+          <label for="aperture"><span><span class="dot dot-a"></span>Aperture</span> <output id="apertureOut"></output></label>
+          <div class="row">
+            <input type="range" id="aperture" min="0" step="1">
+            <canvas id="iris" width="64" height="64" title="Lens opening (iris)"></canvas>
+          </div>
+          <div class="scale"><span>wide · blurry background</span><span>narrow · all sharp</span></div>
+        </div>
+        <div class="ctl">
+          <label for="iso"><span><span class="dot dot-i"></span>ISO</span> <output id="isoOut"></output></label>
+          <input type="range" id="iso" min="0" step="1">
+          <div class="scale"><span>clean</span><span>bright · noisy</span></div>
+        </div>
+        <div class="equiv" id="equiv"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="group">
+        <h2>White balance</h2>
+        <select id="wbPreset"></select>
+        <div class="ctl">
+          <label for="wbK">Colour temp. <output id="wbKOut"></output></label>
+          <input type="range" id="wbK" min="2500" max="10000" step="100" class="kelvin">
+          <div class="scale"><span>→ bluer</span><span>warmer ←</span></div>
+        </div>
+        <div class="ctl">
+          <label for="tint">Tint <output id="tintOut"></output></label>
+          <input type="range" id="tint" min="-10" max="10" step="1" class="tintbar">
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Lens &amp; sensor</h2>
+        <div class="ctl">
+          <label for="focal">Focal length <output id="focalOut"></output></label>
+          <input type="range" id="focal" min="0" max="1000" step="1">
+          <div class="chips small" id="focalChips"></div>
+        </div>
+        <div class="ctl">
+          <label for="focus">Focus distance <output id="focusOut"></output></label>
+          <input type="range" id="focus" min="0" max="1000" step="1">
+          <div class="scale"><span>0.5 m</span><span>or click the photo</span><span>∞</span></div>
+        </div>
+        <div class="ctl">
+          <label for="sensor">Sensor size</label>
+          <select id="sensor"></select>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Holding the camera</h2>
+        <div class="seg" id="supportSeg">
+          <button data-support="tripod">Tripod</button>
+          <button data-support="handheld">Handheld</button>
+          <button data-support="is">Hand + IS</button>
+        </div>
+        <label class="check"><input type="checkbox" id="zebra"> Blink over-exposed areas</label>
+      </div>
+
+      <button id="btnShoot" class="shoot">📸 Take photo</button>
+    </div>
+  </aside>
+</main>
+
+<dialog id="help">
+  <form method="dialog">
+    <h2>How this simulator works</h2>
+    <p>The scene is built from layers at <b>real distances</b> (flowers 1.2 m, chart 3 m, lantern 7 m, car 14 m, lights 25 m, city 120 m, mountains ∞).
+      Light is simulated in linear (physical) units, then sent through a virtual lens and sensor, much like a real camera.</p>
+    <h3>The exposure triangle</h3>
+    <ul>
+      <li><b>Shutter speed</b>: how long the sensor collects light. Each doubling = <b>+1 stop</b> brighter. Slow speeds blur moving things (car, pinwheel) and show camera shake.</li>
+      <li><b>Aperture (f-number)</b>: size of the lens opening. A smaller f-number means a bigger hole. f/2.8 → f/4 halves the light (−1 stop). A wide aperture gives <b>shallow depth of field</b> (blurry background, round "bokeh" lights).</li>
+      <li><b>ISO</b>: amplification of the sensor signal. It does not add light; it amplifies it, and the <b>noise</b> along with it.</li>
+    </ul>
+    <p>Full-stop sequences: shutter 1/1000 · 1/500 · 1/250 · 1/125 · 1/60 · 1/30 … aperture f/1.4 · 2 · 2.8 · 4 · 5.6 · 8 · 11 · 16 · 22 … ISO 100 · 200 · 400 · 800 · 1600 …</p>
+    <h3>White balance</h3>
+    <p>Light has a colour, measured in kelvin (K): candle/tungsten ≈ 2700–3200 K (orange), sunlight ≈ 5500 K, shade/blue sky ≈ 7000–10000 K (blue).
+      The camera's WB setting tells it what light to neutralise. Set it <b>lower</b> than the real light and the photo turns <b>blue</b>; set it <b>higher</b> and it turns <b>orange</b>.
+      Watch the grey patches on the colour chart: they are neutral only when WB matches the light.</p>
+    <h3>Try these exercises</h3>
+    <ol>
+      <li><b>Freeze vs. blur:</b> in "Sunny day", use S mode. Compare the car at 1/2000 and at 1/30. Then put the camera on a tripod and try 1/4.</li>
+      <li><b>Portrait background:</b> focus on the chart (click it), set f/1.8 at 85 mm, then f/16. Watch the depth-of-field map.</li>
+      <li><b>Bokeh:</b> choose "Night", tripod, focus on the chart, 85 mm at f/1.4 then f/8. Look at the shape of the light discs (the 7 aperture blades).</li>
+      <li><b>Light trails:</b> "Night", tripod, ISO 100, f/8 and a 4–15 s exposure.</li>
+      <li><b>Noise:</b> "Night", handheld, 1/125 s, f/2.8. Raise the ISO until it looks bright enough. How noisy is it?</li>
+      <li><b>Equivalent exposures:</b> click the "same brightness" buttons under the triangle. Brightness stays the same, but the look changes.</li>
+      <li><b>White balance:</b> in "Golden hour", try Daylight, then Tungsten, then Shade. In "Blue hour", no single WB fixes both the sky and the lamps.</li>
+      <li><b>Crop sensor:</b> keep 50 mm and change the sensor size. The view narrows and camera shake gets worse.</li>
+    </ol>
+    <h3>Reading the tools</h3>
+    <ul>
+      <li><b>Meter</b>: 0 = exposure the light meter suggests; +1 = twice as bright; −1 = half.</li>
+      <li><b>Histogram</b>: the distribution of brightness, from shadows (left) to highlights (right). A pile against the right edge means blown highlights.</li>
+      <li><b>Depth-of-field map</b>: the green zone is acceptably sharp; the orange curve is how much blur each distance gets.</li>
+      <li><b>Zebra / blinking</b>: red stripes mark pixels clipped to pure white in at least one colour channel.</li>
+    </ul>
+    <div class="dlg-actions"><button class="shoot small">Got it</button></div>
+  </form>
+</dialog>
+
+<script src="js/camera.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
