@@ -14,6 +14,11 @@
     <span class="tag">Change the settings and see what each one does to the photo</span>
   </div>
   <div class="top-actions">
+    <div class="seg ui-seg" id="uiSeg" title="Simple: only the exposure triangle. Advanced: every camera setting.">
+      <button data-ui="simple">Simple</button>
+      <button data-ui="advanced">Advanced</button>
+    </div>
+    <button id="btnSettings" class="ghost">⚙ Scene &amp; light</button>
     <button id="btnHelp" class="ghost">❓ How it works</button>
     <button id="btnReset" class="ghost">↺ Reset</button>
   </div>
@@ -32,7 +37,7 @@
       </div>
     </div>
 
-    <div class="lcd" id="lcd">
+    <div class="lcd adv-only" id="lcd">
       <div class="lcd-item"><span class="lcd-k">MODE</span><b id="lcdMode">M</b></div>
       <div class="lcd-item"><span class="lcd-k">SHUTTER</span><b id="lcdShutter">1/500</b></div>
       <div class="lcd-item"><span class="lcd-k">APERTURE</span><b id="lcdAperture">f/8</b></div>
@@ -52,7 +57,7 @@
         <h3>Histogram <small id="histInfo"></small></h3>
         <canvas id="hist"></canvas>
       </div>
-      <div class="card">
+      <div class="card adv-only">
         <h3>Depth of field <small id="dofInfo"></small></h3>
         <canvas id="dofmap"></canvas>
       </div>
@@ -64,27 +69,16 @@
         </div>
       </div>
       <div class="card strip-card">
-        <h3>Snapshots <small><kbd>Space</kbd> = take</small></h3>
-        <div id="strip" class="strip"><p class="hint">Take photos with different settings and compare them here.</p></div>
+        <h3>Snapshots <small>click one to zoom &amp; draw</small></h3>
+        <div id="strip" class="strip"><p class="hint">Press 📸 <b>Take photo</b> (or <kbd>Space</kbd>) to save shots with different settings, then click one to look closer.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ right: all settings ============ -->
+  <!-- ============ right: camera settings ============ -->
   <aside class="controls">
     <div class="col">
-      <div class="group">
-        <h2>Scene &amp; light</h2>
-        <div class="chips" id="lightingChips"></div>
-        <p class="desc" id="lightingDesc" hidden></p>
-        <div class="ctl">
-          <label for="carSpeed">Car speed <output id="carSpeedOut"></output></label>
-          <input type="range" id="carSpeed" min="0" max="120" step="5">
-        </div>
-        <label class="check"><input type="checkbox" id="spin"> Pinwheel spinning</label>
-      </div>
-
-      <div class="group">
+      <div class="group adv-only">
         <h2>Exposure mode</h2>
         <div class="seg" id="modeSeg">
           <button data-mode="M" title="Manual: you set shutter, aperture and ISO">M</button>
@@ -121,16 +115,42 @@
         </div>
         <div class="equiv" id="equiv"></div>
       </div>
+
+      <div class="group effects simple-only">
+        <h2>Side effects</h2>
+        <div class="fx">
+          <div class="fx-head"><span><span class="dot dot-b"></span>Brightness</span><b id="fxBrightTxt"></b></div>
+          <div class="fx-bar center"><i id="fxBright"></i></div>
+          <div class="scale"><span>too dark</span><span>correct</span><span>too bright</span></div>
+        </div>
+        <div class="fx">
+          <div class="fx-head"><span><span class="dot dot-s"></span>Motion blur <small>← shutter</small></span><b id="fxMotionTxt"></b></div>
+          <div class="fx-bar"><i id="fxMotion"></i></div>
+          <div class="scale"><span>frozen</span><span>blurred</span></div>
+        </div>
+        <div class="fx">
+          <div class="fx-head"><span><span class="dot dot-a"></span>Background blur <small>← aperture</small></span><b id="fxDofTxt"></b></div>
+          <div class="fx-bar"><i id="fxDof"></i></div>
+          <div class="scale"><span>all sharp</span><span>very blurry</span></div>
+        </div>
+        <div class="fx">
+          <div class="fx-head"><span><span class="dot dot-i"></span>Noise <small>← ISO</small></span><b id="fxNoiseTxt"></b></div>
+          <div class="fx-bar"><i id="fxNoise"></i></div>
+          <div class="scale"><span>clean</span><span>very noisy</span></div>
+        </div>
+      </div>
+
+      <button id="btnShoot" class="shoot">📸 Take photo <kbd>Space</kbd></button>
     </div>
 
-    <div class="col">
+    <div class="col adv-only">
       <div class="group">
         <h2>White balance</h2>
         <select id="wbPreset"></select>
         <div class="ctl">
           <label for="wbK">Colour temp. <output id="wbKOut"></output></label>
           <input type="range" id="wbK" min="2500" max="10000" step="100" class="kelvin">
-          <div class="scale"><span>→ bluer</span><span>warmer ←</span></div>
+          <div class="scale"><span>❄ photo bluer</span><span>photo warmer ☀</span></div>
         </div>
         <div class="ctl">
           <label for="tint">Tint <output id="tintOut"></output></label>
@@ -156,26 +176,88 @@
         </div>
       </div>
 
-      <div class="group">
-        <h2>Holding the camera</h2>
-        <div class="seg" id="supportSeg">
-          <button data-support="tripod">Tripod</button>
-          <button data-support="handheld">Handheld</button>
-          <button data-support="is">Hand + IS</button>
-        </div>
-        <label class="check"><input type="checkbox" id="zebra"> Blink over-exposed areas</label>
-      </div>
-
-      <button id="btnShoot" class="shoot">📸 Take photo</button>
     </div>
   </aside>
 </main>
+
+<!-- Scene & light settings (pop-up, used by both Simple and Advanced) -->
+<dialog id="settings" class="settings">
+  <form method="dialog">
+    <div class="dlg-head"><h2>⚙ Scene &amp; light</h2><button class="ghost" value="close">Done</button></div>
+    <div class="group">
+      <h2>Light</h2>
+      <div class="chips" id="lightingChips"></div>
+      <p class="desc" id="lightingDesc"></p>
+    </div>
+    <div class="group">
+      <h2>Moving subjects</h2>
+      <div class="ctl">
+        <label for="carSpeed">Car speed <output id="carSpeedOut"></output></label>
+        <input type="range" id="carSpeed" min="0" max="120" step="5">
+      </div>
+      <label class="check"><input type="checkbox" id="spin"> Pinwheel spinning (2 turns per second)</label>
+    </div>
+    <div class="group">
+      <h2>Holding the camera</h2>
+      <div class="seg" id="supportSeg">
+        <button type="button" data-support="tripod">Tripod</button>
+        <button type="button" data-support="handheld">Handheld</button>
+        <button type="button" data-support="is">Hand + IS</button>
+      </div>
+      <p class="desc">Handheld: at slow shutter speeds your hands shake and the whole photo blurs. IS = image stabilisation.</p>
+    </div>
+    <div class="group">
+      <h2>Display</h2>
+      <label class="check"><input type="checkbox" id="zebra"> Blink over-exposed areas (red stripes)</label>
+    </div>
+  </form>
+</dialog>
+
+<!-- Snapshot viewer: zoom, pan and draw (drawings are cleared on close) -->
+<dialog id="viewer" class="viewer-dlg">
+  <div class="vw-bar">
+    <div class="vw-info" id="vwInfo"></div>
+    <div class="vw-tools">
+      <div class="seg" id="vwTool">
+        <button type="button" data-tool="pan" title="Move the photo (H)">✋ Move</button>
+        <button type="button" data-tool="draw" title="Draw on the photo (B)">🖌 Draw</button>
+      </div>
+      <div class="vw-colors" id="vwColors" title="Brush colour">
+        <button type="button" data-c="#ff3b3b" style="--c:#ff3b3b"></button>
+        <button type="button" data-c="#ffd43b" style="--c:#ffd43b"></button>
+        <button type="button" data-c="#3bd5ff" style="--c:#3bd5ff"></button>
+        <button type="button" data-c="#51cf66" style="--c:#51cf66"></button>
+        <button type="button" data-c="#ffffff" style="--c:#ffffff"></button>
+      </div>
+      <label class="vw-size" title="Brush size">●<input type="range" id="vwSize" min="2" max="30" value="6"></label>
+      <button type="button" class="vbtn" id="vwUndo" title="Undo (Ctrl/⌘+Z)">↶ Undo</button>
+      <button type="button" class="vbtn" id="vwClear" title="Erase all drawings">🧽 Clear</button>
+      <span class="vw-sep"></span>
+      <button type="button" class="vbtn" id="vwOut" title="Zoom out (−)">−</button>
+      <output id="vwZoom">100%</output>
+      <button type="button" class="vbtn" id="vwIn" title="Zoom in (+)">+</button>
+      <button type="button" class="vbtn" id="vwFit" title="Fit to screen (0)">Fit</button>
+      <button type="button" class="vbtn" id="vw1" title="Actual pixels">1:1</button>
+      <span class="vw-sep"></span>
+      <button type="button" class="vbtn" id="vwPrev" title="Newer snapshot (←)">◀</button>
+      <output id="vwCount"></output>
+      <button type="button" class="vbtn" id="vwNext" title="Older snapshot (→)">▶</button>
+      <button type="button" class="vbtn accent" id="vwRestore" title="Load this photo's settings into the camera">⟲ Use these settings</button>
+      <button type="button" class="vbtn" id="vwClose" title="Close (Esc). Drawings are erased.">✕</button>
+    </div>
+  </div>
+  <div class="vw-stage"><canvas id="vwCanvas"></canvas></div>
+  <div class="vw-hint">Scroll / pinch to zoom · drag to move · double-click to fit · drawings are erased when you close</div>
+</dialog>
 
 <dialog id="help">
   <form method="dialog">
     <h2>How this simulator works</h2>
     <p>The scene is built from layers at <b>real distances</b> (flowers 1.2 m, chart 3 m, lantern 7 m, car 14 m, lights 25 m, city 120 m, mountains ∞).
       Light is simulated in linear (physical) units, then sent through a virtual lens and sensor, much like a real camera.</p>
+    <h3>Simple and Advanced</h3>
+    <p><b>Simple</b> shows only the exposure triangle, with a <b>Side effects</b> panel: watch brightness, motion blur, background blur and noise change as you move each slider.
+      <b>Advanced</b> adds exposure modes, white balance, lens, sensor, depth-of-field map and snapshots. Lighting, moving subjects and tripod/handheld are under <b>⚙ Scene &amp; light</b>.</p>
     <h3>The exposure triangle</h3>
     <ul>
       <li><b>Shutter speed</b>: how long the sensor collects light. Each doubling = <b>+1 stop</b> brighter. Slow speeds blur moving things (car, pinwheel) and show camera shake.</li>

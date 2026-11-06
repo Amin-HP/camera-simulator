@@ -6,7 +6,11 @@ and see the photo change immediately.
 
 ### ▶ [Open the live simulator](https://amin-hp.github.io/camera-simulator/)
 
-![Camera Simulator: photo, camera display, histogram, depth-of-field map and all settings on one screen](docs/images/app.jpg)
+Two levels, switchable at the top of the page:
+
+| **Simple**: only the exposure triangle, plus a *Side effects* panel | **Advanced**: every camera setting |
+|---|---|
+| ![Simple mode: shutter, aperture and ISO sliders with side-effect gauges and a brightness histogram](docs/images/app-simple.jpg) | ![Advanced mode: modes, white balance, lens, depth-of-field map, snapshots](docs/images/app.jpg) |
 
 | Motion blur: 1/15 s | Light trails: 8 s, tripod |
 |---|---|
@@ -32,10 +36,31 @@ and see the photo change immediately.
 ## Quick start
 
 1. Open the [live simulator](https://amin-hp.github.io/camera-simulator/) in Chrome, Edge, Firefox or Safari (it needs WebGL2, which all current browsers support).
-2. Move any slider. The photo, the exposure meter, the histogram and the depth-of-field map update instantly.
-3. **Click the photo** to focus on whatever is under the cursor.
-4. Press **Space** (or 📸 *Take photo*) to save a snapshot. Take several with different settings and compare them; click a snapshot to restore its settings.
-5. Click **❓ How it works** in the app for a built-in guide.
+2. Choose **Simple** or **Advanced** at the top (see below). Change the light, moving subjects and tripod/handheld under **⚙ Scene & light**.
+3. Move any slider. The photo, the exposure meter, the histogram and the depth-of-field map update instantly.
+4. **Click the photo** to focus on whatever is under the cursor.
+5. Press **Space** (or 📸 *Take photo*) to save a snapshot. Take several with different settings and compare them.
+   **Click a snapshot** to open it full-screen: zoom in (scroll/pinch, +/−) to inspect noise and blur, drag to move,
+   and use the 🖌 **brush** to circle or point at details while you explain. ◀ ▶ flips between snapshots,
+   *Use these settings* loads the shot's settings back into the camera, and drawings are erased when you close the viewer.
+6. Click **❓ How it works** in the app for a built-in guide.
+
+## Simple and Advanced
+
+**Simple** is for a first lesson. It shows only **shutter speed, aperture and ISO**, a **brightness histogram**, and a **Side effects** panel with four live gauges:
+
+| Gauge | Changed by | Shows |
+|---|---|---|
+| Brightness | all three | too dark ↔ correct ↔ too bright |
+| Motion blur | shutter speed | frozen ↔ blurred (the car, the pinwheel, camera shake) |
+| Background blur | aperture | all sharp ↔ very blurry |
+| Noise | ISO | clean ↔ very noisy |
+
+Simple mode also has **📸 Take photo** and the snapshot viewer. In Simple mode the camera stays in Manual with Auto white balance, so only the three triangle settings change the photo.
+
+**Advanced** adds exposure modes (M / A / S, Auto ISO, exposure compensation), white balance, focal length, focus, sensor size, the RGB histogram, the depth-of-field map and snapshots.
+
+**⚙ Scene & light** (a pop-up, available in both modes) holds the light preset, car speed, pinwheel, tripod/handheld/IS and the over-exposure blink. Your choice of Simple or Advanced is remembered by the browser.
 
 ## What each setting does
 
@@ -93,7 +118,7 @@ Choose a preset (Auto, Daylight, Cloudy, Shade, Tungsten, Fluorescent, Flash), d
 | **Blink over-exposed areas** | Red stripes mark parts of the photo blown to pure white. |
 | **Depth-of-field map** | Distance scale from 0.5 m to ∞ with every object in the scene. The green zone is acceptably sharp, the dashed line is the focus distance, and the orange curve shows blur growing with distance from the focus point. |
 | **What's happening?** | An explanation of the setting you just changed, plus live warnings (exposure, clipping, camera shake, noise, motion, focus, white balance, diffraction). |
-| **Snapshots** | Saved photos with their settings. Hover to see all the settings; click to restore them. |
+| **Snapshots** | Saved full-resolution photos with their settings (in both Simple and Advanced). Click one to open the viewer, where you can zoom, pan and draw. |
 
 ## Exercises for the classroom
 
@@ -141,6 +166,8 @@ Add settings after `#` in the URL to open the simulator ready for a lesson:
 | `support` | `tripod`, `handheld`, `is` |
 | `car` | car speed in km/h (`0` = parked) |
 | `autoiso`, `zebra` | `1` or `0` |
+| `ui` | `simple` or `advanced` |
+| `open` | `settings` opens the Scene & light pop-up |
 
 ## How it works (technical)
 

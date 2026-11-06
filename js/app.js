@@ -16,6 +16,10 @@
     af: [560, 563], focusName: 'Colour chart',
   };
   let S = clone(DEFAULTS);
+  // Interface level: 'simple' (exposure triangle only) or 'advanced' (every setting). Kept outside S
+  // so Reset and snapshots don't change it.
+  let UI = 'simple';
+  try { UI = localStorage.getItem('camsim-ui') === 'advanced' ? 'advanced' : 'simple'; } catch (e) { /* storage blocked */ }
   S.seed = 1; S.last = 'welcome';
   function clone(o) { return JSON.parse(JSON.stringify(o, (k, v) => v === Infinity ? 'Inf' : v), (k, v) => v === 'Inf' ? Infinity : v); }
 
@@ -223,20 +227,28 @@
     x.strokeStyle = '#222'; x.lineWidth = 1;
     for (let i = 1; i < 5; i++) { x.beginPath(); x.moveTo(i * W / 5, 0); x.lineTo(i * W / 5, H); x.stroke(); }
     let max = 1;
-    for (let i = 2; i < 254; i++) max = Math.max(max, h.r[i], h.g[i], h.b[i]);
+    const lumOnly = UI === 'simple';
+    for (let i = 2; i < 254; i++) max = lumOnly ? Math.max(max, h.l[i]) : Math.max(max, h.r[i], h.g[i], h.b[i]);
     const top = 16 * k;
     const plot = (arr, col) => {
       x.fillStyle = col; x.beginPath(); x.moveTo(0, H);
       for (let i = 0; i < 256; i++) x.lineTo(i / 255 * W, H - Math.min(1, arr[i] / max) * (H - top));
       x.lineTo(W, H); x.closePath(); x.fill();
     };
-    x.globalCompositeOperation = 'lighter';
-    plot(h.r, 'rgba(255,60,60,0.55)'); plot(h.g, 'rgba(60,255,90,0.5)'); plot(h.b, 'rgba(70,120,255,0.6)');
-    x.globalCompositeOperation = 'source-over';
+    if (lumOnly) {
+      const g = x.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, '#3a3f4a'); g.addColorStop(1, '#f2f2f2');
+      plot(h.l, g);
+    } else {
+      x.globalCompositeOperation = 'lighter';
+      plot(h.r, 'rgba(255,60,60,0.55)'); plot(h.g, 'rgba(60,255,90,0.5)'); plot(h.b, 'rgba(70,120,255,0.6)');
+      x.globalCompositeOperation = 'source-over';
+    }
     if (h.clipHi > 0.002) { x.fillStyle = 'rgba(255,70,70,0.9)'; x.fillRect(W - 4 * k, 0, 4 * k, H); }
     if (h.clipLo > 0.02) { x.fillStyle = 'rgba(80,140,255,0.9)'; x.fillRect(0, 0, 4 * k, H); }
     x.fillStyle = '#9aa1ad'; x.font = `${10 * k}px system-ui`;
-    x.fillText('shadows', 7 * k, 12 * k); x.textAlign = 'right'; x.fillText('highlights', W - 7 * k, 12 * k); x.textAlign = 'left';
+    x.fillText(lumOnly ? 'dark' : 'shadows', 7 * k, 12 * k); x.textAlign = 'right';
+    x.fillText(lumOnly ? 'bright' : 'highlights', W - 7 * k, 12 * k); x.textAlign = 'left';
     $('histInfo').textContent = `${(h.clipHi * 100).toFixed(1)}% white · ${(h.clipLo * 100).toFixed(1)}% black`;
     $('histInfo').title = 'Share of pixels clipped to pure white / pure black';
   }
@@ -270,7 +282,7 @@
     x.textAlign = 'right'; x.fillText('m', W - 2 * k, AX + 12 * k); x.textAlign = 'left';
     // focus plane
     const fx = xd(isFinite(S.focus) ? S.focus : Infinity);
-    x.strokeStyle = '#f5b83d'; x.lineWidth = 1.5 * k; x.setLineDash([4 * k, 3 * k]);
+    x.strokeStyle = '#e4e7ec'; x.lineWidth = 1.5 * k; x.setLineDash([4 * k, 3 * k]);
     x.beginPath(); x.moveTo(fx, 2 * k); x.lineTo(fx, AX); x.stroke(); x.setLineDash([]); x.lineWidth = 1;
     // objects
     x.font = `${10 * k}px system-ui`;
@@ -318,6 +330,7 @@
     $('warnings').innerHTML = warnings().map(([cls, txt]) => `<li class="${cls}">${txt}</li>`).join('');
     equivalents();
     placeAF();
+    if (UI === 'simple') updateEffects();
   }
 
   function carState() {
@@ -395,6 +408,9 @@
       case 'scene':
         return `<p><b>${L.icon} ${L.name}</b>: ${L.desc}</p><p>Light meter reads <b>EV ${L.ev}</b>. Your settings give EV ${ev} (at ISO 100). The difference, <b>${stops(D.delta)} stops</b>, is how bright the photo will be.</p>`;
       default:
+        if (UI === 'simple') return `<p><b>The exposure triangle.</b> Three settings control how bright the photo is: <b class="s">shutter speed</b>, <b class="a">aperture</b> and <b class="i">ISO</b>.</p>
+          <p>Each one also has a <b>side effect</b>: the shutter blurs motion, the aperture blurs the background, and ISO adds noise. Move one slider at a time and watch the photo and the <b>Side effects</b> bars.</p>
+          <p>Change the light (sun, night…) under <b>⚙ Scene &amp; light</b>.</p>`;
         return `<p>Welcome! This is a virtual camera. Move any slider and the photo, histogram and depth-of-field map update instantly.</p>
           <p>Start with the <b class="s">shutter</b>, <b class="a">aperture</b> and <b class="i">ISO</b>: together they set the brightness, and each one also changes the <i>look</i> of the photo. Click ❓ for exercises.</p>`;
     }
@@ -474,7 +490,7 @@
     $('iso').max = ISOS.length - 1;
     const lc = $('lightingChips');
     for (const k in SCENE.LIGHTING) {
-      const b = document.createElement('button'); b.dataset.k = k;
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.k = k;
       b.textContent = `${SCENE.LIGHTING[k].icon} ${SCENE.LIGHTING[k].name}`;
       lc.appendChild(b);
     }
@@ -506,10 +522,13 @@
     $('supportSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.support = b.dataset.support; S.last = 'support'; schedule(); });
     on('btnShoot', 'click', shoot);
     on('btnHelp', 'click', () => $('help').showModal());
-    on('btnReset', 'click', () => { const seed = S.seed; S = clone(DEFAULTS); S.seed = seed; S.last = 'welcome'; schedule(true); });
+    on('btnSettings', 'click', () => $('settings').showModal());
+    $('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').close(); }); // click outside closes
+    on('btnReset', 'click', () => { const seed = S.seed; S = clone(DEFAULTS); S.seed = seed; S.last = 'welcome'; setUI(UI); });
+    $('uiSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setUI(b.dataset.ui, true); });
     on('view', 'click', focusAt);
     window.addEventListener('keydown', e => {
-      if (e.code === 'Space' && !$('help').open && !(e.target instanceof HTMLSelectElement)) { e.preventDefault(); shoot(); }
+      if (e.code === 'Space' && !$('help').open && !$('settings').open && !$('viewer').open && !(e.target instanceof HTMLSelectElement)) { e.preventDefault(); shoot(); }
     });
     let rt = 0;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => schedule(), 150); });
@@ -601,11 +620,14 @@
   }
   let shots = [];
   function addSnapshot() {
+    const view = $('view');
     const tc = document.createElement('canvas'); tc.width = 300; tc.height = 200;
-    tc.getContext('2d').drawImage($('view'), 0, 0, tc.width, tc.height);
+    tc.getContext('2d').drawImage(view, 0, 0, tc.width, tc.height);
     const L = D.L;
     shots.unshift({
-      img: tc.toDataURL('image/jpeg', 0.85), state: clone(S),
+      thumb: tc.toDataURL('image/jpeg', 0.85),
+      full: view.toDataURL('image/jpeg', 0.93),          // full resolution, for zooming in the viewer
+      state: clone(S),
       short: `${SHUTTER_LABELS[S.si]} · ${fmtN(D.N)} · ${D.iso}`,
       cap: `<b>${SHUTTER_LABELS[S.si]}</b> · <b>${fmtN(D.N)}</b> · <b>ISO ${D.iso}</b><br>${S.focal} mm · focus ${fmtD(S.focus)} · WB ${D.wbK}K<br>${L.icon} ${L.name} · ${stops(D.delta)} EV · ${S.support === 'tripod' ? 'tripod' : 'handheld'}`,
     });
@@ -614,17 +636,208 @@
   }
   function renderStrip() {
     const st = $('strip');
-    st.innerHTML = shots.length ? '' : '<p class="hint">Take photos with different settings and compare them here.</p>';
+    st.innerHTML = shots.length ? '' : '<p class="hint">Press 📸 <b>Take photo</b> (or <kbd>Space</kbd>) to save shots with different settings, then click one to look closer.</p>';
     shots.forEach((s, i) => {
       const d = document.createElement('div'); d.className = 'shot';
-      d.title = s.cap.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '') + '\n(click to restore these settings)';
-      d.innerHTML = `<img src="${s.img}" alt="snapshot"><div class="cap">${s.short}</div><button class="del" title="Delete">×</button>`;
+      d.title = s.cap.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '') + '\n(click to open, zoom and draw)';
+      d.innerHTML = `<img src="${s.thumb}" alt="snapshot"><div class="cap">${s.short}</div><button class="del" title="Delete">×</button>`;
       d.addEventListener('click', e => {
         if (e.target.classList.contains('del')) { shots.splice(i, 1); renderStrip(); return; }
-        const seed = S.seed; S = clone(s.state); S.seed = seed; S.last = 'restore'; schedule(true);
+        openViewer(i);
       });
       st.appendChild(d);
     });
+  }
+  function restoreShot(i) {
+    const s = shots[i]; if (!s) return;
+    const seed = S.seed; S = clone(s.state); S.seed = seed; S.last = 'restore';
+    // a shot taken with advanced settings can't be shown faithfully in Simple mode
+    const adv = S.mode !== 'M' || S.autoISO || S.ec || S.wb !== 'auto' || S.tint;
+    if (UI === 'simple' && adv) setUI('advanced'); else schedule(true);
+  }
+
+  // ------------------------------------------------------------------ snapshot viewer (zoom · pan · draw)
+  const VW = { i: 0, img: null, k: 1, ox: 0, oy: 0, fitK: 1, tool: 'pan', color: '#ff3b3b', strokes: [], cur: null, drag: null };
+  const vwC = $('vwCanvas'), vwX = vwC.getContext('2d');
+  const vwDpr = () => Math.min(window.devicePixelRatio || 1, 3);
+
+  function openViewer(i) {
+    if (!shots[i]) return;
+    VW.i = i; VW.strokes = []; VW.cur = null;
+    const img = new Image();
+    img.onload = () => { VW.img = img; vwResize(); vwFit(); };
+    img.src = shots[i].full;
+    $('vwInfo').innerHTML = shots[i].cap.replace(/<br>/g, ' &nbsp;·&nbsp; ');
+    $('vwCount').textContent = `${i + 1} / ${shots.length}`;
+    $('vwPrev').disabled = i <= 0; $('vwNext').disabled = i >= shots.length - 1;
+    if (!$('viewer').open) $('viewer').showModal();
+    vwSetTool(VW.tool);
+  }
+  function vwResize() {
+    const d = vwDpr(), w = Math.round(vwC.clientWidth * d), h = Math.round(vwC.clientHeight * d);
+    if (vwC.width !== w || vwC.height !== h) { vwC.width = w; vwC.height = h; }
+  }
+  function vwFit() {
+    if (!VW.img) return;
+    const W = vwC.width, H = vwC.height, iw = VW.img.width, ih = VW.img.height;
+    VW.fitK = Math.min(W / iw, H / ih) * 0.97;
+    VW.k = VW.fitK; VW.ox = (W - iw * VW.k) / 2; VW.oy = (H - ih * VW.k) / 2;
+    vwDraw();
+  }
+  function vwZoomAt(f, sx, sy) {
+    if (!VW.img) return;
+    if (sx === undefined) { sx = vwC.width / 2; sy = vwC.height / 2; }
+    const k = Math.min(32, Math.max(VW.fitK * 0.5, VW.k * f));
+    const ix = (sx - VW.ox) / VW.k, iy = (sy - VW.oy) / VW.k;
+    VW.k = k; VW.ox = sx - ix * k; VW.oy = sy - iy * k;
+    vwDraw();
+  }
+  function vwDraw() {
+    const x = vwX, W = vwC.width, H = vwC.height;
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.fillStyle = '#08090c'; x.fillRect(0, 0, W, H);
+    if (!VW.img) return;
+    x.setTransform(VW.k, 0, 0, VW.k, VW.ox, VW.oy);
+    x.imageSmoothingEnabled = VW.k < 2.5;     // show real pixels (noise!) when zoomed in
+    x.drawImage(VW.img, 0, 0);
+    x.lineCap = 'round'; x.lineJoin = 'round';
+    for (const s of VW.cur ? [...VW.strokes, VW.cur] : VW.strokes) {
+      x.strokeStyle = s.c; x.lineWidth = s.w;
+      x.beginPath();
+      s.p.forEach(([px, py], j) => j ? x.lineTo(px, py) : x.moveTo(px, py));
+      if (s.p.length === 1) x.lineTo(s.p[0][0] + 0.01, s.p[0][1]);
+      x.stroke();
+    }
+    $('vwZoom').textContent = Math.round(VW.k / VW.fitK * 100) + '%';
+  }
+  function vwSetTool(t) {
+    VW.tool = t;
+    document.querySelectorAll('#vwTool button').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+    vwC.classList.toggle('draw', t === 'draw');
+  }
+  function vwPoint(e) {
+    const r = vwC.getBoundingClientRect(), d = vwC.width / r.width;
+    return [(e.clientX - r.left) * d, (e.clientY - r.top) * d];
+  }
+
+  vwC.addEventListener('pointerdown', e => {
+    vwC.setPointerCapture(e.pointerId);
+    const [sx, sy] = vwPoint(e);
+    // left button draws in Draw mode; anything else (or Move mode) pans
+    if (VW.tool === 'draw' && e.button === 0) {
+      const size = +$('vwSize').value * vwDpr();
+      VW.cur = { c: VW.color, w: size / VW.k, p: [[(sx - VW.ox) / VW.k, (sy - VW.oy) / VW.k]] };
+    } else {
+      VW.drag = { sx, sy, ox: VW.ox, oy: VW.oy };
+      vwC.classList.add('grabbing');
+    }
+    vwDraw();
+  });
+  vwC.addEventListener('pointermove', e => {
+    const [sx, sy] = vwPoint(e);
+    if (VW.cur) { VW.cur.p.push([(sx - VW.ox) / VW.k, (sy - VW.oy) / VW.k]); vwDraw(); }
+    else if (VW.drag) { VW.ox = VW.drag.ox + sx - VW.drag.sx; VW.oy = VW.drag.oy + sy - VW.drag.sy; vwDraw(); }
+  });
+  const vwEnd = () => {
+    if (VW.cur) { VW.strokes.push(VW.cur); VW.cur = null; }
+    VW.drag = null; vwC.classList.remove('grabbing'); vwDraw();
+  };
+  vwC.addEventListener('pointerup', vwEnd);
+  vwC.addEventListener('pointercancel', vwEnd);
+  vwC.addEventListener('wheel', e => {
+    e.preventDefault();
+    const [sx, sy] = vwPoint(e);
+    vwZoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), sx, sy);   // ctrl+wheel = trackpad pinch
+  }, { passive: false });
+  vwC.addEventListener('dblclick', vwFit);
+  vwC.addEventListener('contextmenu', e => e.preventDefault());
+
+  $('vwTool').addEventListener('click', e => { const b = e.target.closest('button'); if (b) vwSetTool(b.dataset.tool); });
+  $('vwColors').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    VW.color = b.dataset.c; vwSetTool('draw');
+    document.querySelectorAll('#vwColors button').forEach(x => x.classList.toggle('on', x === b));
+  });
+  document.querySelector('#vwColors button').classList.add('on');
+  $('vwSize').addEventListener('input', () => vwSetTool('draw'));
+  $('vwUndo').addEventListener('click', () => { VW.strokes.pop(); vwDraw(); });
+  $('vwClear').addEventListener('click', () => { VW.strokes = []; vwDraw(); });
+  $('vwIn').addEventListener('click', () => vwZoomAt(1.5));
+  $('vwOut').addEventListener('click', () => vwZoomAt(1 / 1.5));
+  $('vwFit').addEventListener('click', vwFit);
+  $('vw1').addEventListener('click', () => vwZoomAt(1 / VW.k));
+  $('vwPrev').addEventListener('click', () => openViewer(VW.i - 1));
+  $('vwNext').addEventListener('click', () => openViewer(VW.i + 1));
+  $('vwRestore').addEventListener('click', () => { const i = VW.i; $('viewer').close(); restoreShot(i); });
+  $('vwClose').addEventListener('click', () => $('viewer').close());
+  // closing (✕, Esc) erases all drawings
+  $('viewer').addEventListener('close', () => { VW.strokes = []; VW.cur = null; VW.img = null; });
+  $('viewer').addEventListener('keydown', e => {
+    if (e.target instanceof HTMLInputElement) return;
+    const k = e.key;
+    if (k === '+' || k === '=') vwZoomAt(1.5);
+    else if (k === '-' || k === '_') vwZoomAt(1 / 1.5);
+    else if (k === '0') vwFit();
+    else if (k === 'b' || k === 'B') vwSetTool('draw');
+    else if (k === 'h' || k === 'H' || k === 'v' || k === 'V') vwSetTool('pan');
+    else if (k === 'ArrowLeft') openViewer(VW.i - 1);
+    else if (k === 'ArrowRight') openViewer(VW.i + 1);
+    else if ((e.metaKey || e.ctrlKey) && (k === 'z' || k === 'Z')) { VW.strokes.pop(); vwDraw(); }
+    else return;
+    e.preventDefault();
+  });
+  window.addEventListener('resize', () => {
+    if (!$('viewer').open || !VW.img) return;
+    const cx = vwC.width / 2, cy = vwC.height / 2, rel = VW.k / VW.fitK;
+    const ix = (cx - VW.ox) / VW.k, iy = (cy - VW.oy) / VW.k;
+    vwResize();
+    const W = vwC.width, H = vwC.height;
+    VW.fitK = Math.min(W / VW.img.width, H / VW.img.height) * 0.97;
+    VW.k = VW.fitK * rel; VW.ox = W / 2 - ix * VW.k; VW.oy = H / 2 - iy * VW.k;
+    vwDraw();
+  });
+
+  // ------------------------------------------------------------------ Simple / Advanced
+  function setUI(ui, user) {
+    UI = ui === 'advanced' ? 'advanced' : 'simple';
+    document.body.classList.toggle('simple', UI === 'simple');
+    document.body.classList.toggle('advanced', UI === 'advanced');
+    document.querySelectorAll('#uiSeg button').forEach(b => b.classList.toggle('on', b.dataset.ui === UI));
+    if (UI === 'simple') {
+      // Simple = pure manual exposure: only shutter, aperture and ISO change the photo.
+      S.mode = 'M'; S.autoISO = false; S.ec = 0; S.wb = 'auto'; S.tint = 0;
+      if (user) S.last = 'welcome';
+    }
+    try { localStorage.setItem('camsim-ui', UI); } catch (e) { /* storage blocked */ }
+    schedule(true);
+  }
+
+  // Side-effect gauges (Simple mode): one bar per consequence of the exposure triangle.
+  function updateEffects() {
+    const bar = (id, v) => { $(id).style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; };
+    const lvl = (v, words) => words[Math.min(words.length - 1, Math.floor(Math.max(0, Math.min(0.999, v)) * words.length))];
+    // brightness: needle-like segment from the centre
+    const d = Math.max(-3, Math.min(3, D.delta)), el = $('fxBright');
+    const c = 50, p = 50 + d / 3 * 50;
+    el.style.left = Math.min(c, p) + '%'; el.style.width = Math.max(1.2, Math.abs(p - c)) + '%';
+    el.style.background = Math.abs(D.delta) <= 0.34 ? 'var(--ok)' : Math.abs(D.delta) <= 1 ? 'var(--warn)' : 'var(--bad)';
+    $('fxBrightTxt').textContent = Math.abs(D.delta) <= 0.34 ? 'correct ✓' : `${D.delta > 0 ? 'too bright' : 'too dark'} (${stops(D.delta)} stops)`;
+    // motion blur: the car (and the pinwheel), plus camera shake when handheld
+    const carPx = S.carSpeed > 0 ? D.carV * D.t : 0, pinPx = D.pinTip * D.t;
+    const motion = Math.max(carPx, pinPx * 0.5, S.support !== 'tripod' ? D.shake : 0);
+    const mv = Math.log2(1 + motion) / Math.log2(1 + 600);
+    bar('fxMotion', mv);
+    $('fxMotionTxt').textContent = motion < 1.5 ? 'frozen' : lvl(mv, ['slight', 'slight', 'blurred', 'streaked']) +
+      (S.support !== 'tripod' && D.shake > 1.5 && D.shake >= carPx * 0.5 ? ' + shake' : '');
+    // background blur: how soft the far background is with the current aperture / focus
+    const bg = D.blurR(120);
+    const bv = Math.log2(1 + bg) / Math.log2(1 + 45);
+    bar('fxDof', bv);
+    $('fxDofTxt').textContent = bg < 0.8 ? 'all sharp' : lvl(bv, ['slightly soft', 'soft', 'blurred', 'very blurry']);
+    // noise
+    const nv = Math.log2(Math.max(1, D.noisePct / 1.5)) / Math.log2(30);
+    bar('fxNoise', nv);
+    $('fxNoiseTxt').textContent = D.noisePct < 3 ? 'clean' : D.noisePct < 8 ? 'fine grain' : D.noisePct < 18 ? 'noisy' : 'very noisy';
   }
 
   // ------------------------------------------------------------------ URL hash: share a setup
@@ -652,6 +865,9 @@
     if (h.has('car')) S.carSpeed = num('car');
     if (h.has('autoiso')) S.autoISO = h.get('autoiso') === '1';
     if (h.has('zebra')) S.zebra = h.get('zebra') === '1';
+    if (h.has('ui')) UI = h.get('ui') === 'advanced' ? 'advanced' : 'simple';
+    if (h.get('open') === 'settings') setTimeout(() => $('settings').showModal(), 0);
+    if (h.get('open') === 'viewer') setTimeout(() => { shoot(); openViewer(0); }, 400);
     if (h.has('last')) S.last = h.get('last');
     if (h.has('debug')) setTimeout(() => {               // copy the frame to an <img> (for automated screenshots)
       R.develop({ ...lastDev, zebra: false });
@@ -664,5 +880,5 @@
   // ------------------------------------------------------------------ go
   buildUI();
   applyHash();
-  schedule(true);
+  setUI(UI);
 })();
